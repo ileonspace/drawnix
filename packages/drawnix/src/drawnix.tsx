@@ -37,7 +37,9 @@ import { TTDDialog } from './components/ttd-dialog/ttd-dialog';
 import { CleanConfirm } from './components/clean-confirm/clean-confirm';
 import { buildTextLinkPlugin } from './plugins/with-text-link';
 import { LinkPopup } from './components/popup/link-popup/link-popup';
-import { useI18n, I18nProvider } from './i18n';
+import { I18nProvider } from './i18n';
+import { Tutorial } from './components/tutorial';
+import { LASER_POINTER_CLASS_NAME } from './utils/laser-pointer';
 
 export type DrawnixProps = {
   value: PlaitElement[];
@@ -49,6 +51,7 @@ export type DrawnixProps = {
   onViewportChange?: (value: Viewport) => void;
   onThemeChange?: (value: ThemeColorMode) => void;
   afterInit?: (board: PlaitBoard) => void;
+  tutorial?: boolean;
 } & React.HTMLAttributes<HTMLDivElement>;
 
 export const Drawnix: React.FC<DrawnixProps> = ({
@@ -61,6 +64,7 @@ export const Drawnix: React.FC<DrawnixProps> = ({
   onThemeChange,
   onValueChange,
   afterInit,
+  tutorial = false,
 }) => {
   const options: PlaitBoardOptions = {
     readonly: false,
@@ -136,7 +140,13 @@ export const Drawnix: React.FC<DrawnixProps> = ({
                 setBoard(board as DrawnixBoard);
                 afterInit && afterInit(board);
               }}
-            ></Board>
+            >
+              {tutorial &&
+                board &&
+                PlaitBoard.isPointer(board, PlaitPointerType.selection) && (
+                  <Tutorial />
+                )}
+            </Board>
             <AppToolbar></AppToolbar>
             <CreationToolbar></CreationToolbar>
             <ZoomToolbar></ZoomToolbar>
@@ -147,6 +157,7 @@ export const Drawnix: React.FC<DrawnixProps> = ({
             <TTDDialog container={containerRef.current}></TTDDialog>
             <CleanConfirm container={containerRef.current}></CleanConfirm>
           </Wrapper>
+          <canvas className={`${LASER_POINTER_CLASS_NAME} mouse-course-hidden`}></canvas>
         </div>
       </DrawnixContext.Provider>
     </I18nProvider>

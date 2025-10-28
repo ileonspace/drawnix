@@ -43,6 +43,8 @@ import {
 import { ExtraToolsButton } from './extra-tools/extra-tools-button';
 import { addImage } from '../../utils/image';
 import { useI18n } from '../../i18n';
+import { SHAPES } from '../shape-picker';
+import { ARROWS } from '../arrow-picker';
 
 export enum PopupKey {
   'shape' = 'shape',
@@ -141,6 +143,8 @@ export const CreationToolbar = () => {
     useState<AppToolButtonProps>(
       BUTTONS.find((button) => button.key === PopupKey.freehand)!
     );
+  const [lastShapePointer, setLastShapePointer] = useState<string | undefined>(SHAPES[0].pointer);
+  const [lastArrowPointer, setLastArrowPointer] = useState<string | undefined>(ARROWS[0].pointer);
 
   const onPointerDown = (pointer: DrawnixPointerType) => {
     setCreationMode(board, BoardCreationMode.dnd);
@@ -243,6 +247,13 @@ export const CreationToolbar = () => {
                     aria-label={button.titleKey ? t(button.titleKey) : 'Shape'}
                     onPointerDown={() => {
                       setShapeOpen(!shapeOpen);
+                      if (isShapePointer(board)) {
+                        BoardTransforms.updatePointerType(board, board.pointer);
+                      } else {
+                        setPointer(lastShapePointer || SHAPES[0].pointer)
+                        setCreationMode(board, BoardCreationMode.drawing);
+                        BoardTransforms.updatePointerType(board, lastShapePointer || SHAPES[0].pointer);
+                      } 
                     }}
                   />
                 </PopoverTrigger>
@@ -251,6 +262,7 @@ export const CreationToolbar = () => {
                     onPointerUp={(pointer: DrawPointerType) => {
                       setShapeOpen(false);
                       setPointer(pointer);
+                      setLastShapePointer(pointer);
                     }}
                   ></ShapePicker>
                 </PopoverContent>
@@ -277,6 +289,13 @@ export const CreationToolbar = () => {
                     aria-label={button.titleKey ? t(button.titleKey) : ''}
                     onPointerDown={() => {
                       setArrowOpen(!arrowOpen);
+                      if (isArrowLinePointer(board)) {
+                        BoardTransforms.updatePointerType(board, board.pointer);
+                      } else {
+                        setCreationMode(board, BoardCreationMode.drawing);
+                        BoardTransforms.updatePointerType(board, lastArrowPointer || ARROWS[0].pointer);
+                        setPointer(lastArrowPointer || ARROWS[0].pointer);
+                      }
                     }}
                   />
                 </PopoverTrigger>
@@ -285,6 +304,7 @@ export const CreationToolbar = () => {
                     onPointerUp={(pointer: DrawPointerType) => {
                       setArrowOpen(false);
                       setPointer(pointer);
+                      setLastArrowPointer(pointer);
                     }}
                   ></ArrowPicker>
                 </PopoverContent>

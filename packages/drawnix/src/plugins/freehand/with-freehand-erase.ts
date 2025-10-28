@@ -1,100 +1,128 @@
 import {
-    PlaitBoard,
-    PlaitElement,
-    Point,
-    throttleRAF,
-    toHostPoint,
-    toViewBoxPoint,
+  PlaitBoard,
+  PlaitElement,
+  Point,
+  throttleRAF,
+  toHostPoint,
+  toViewBoxPoint,
 } from '@plait/core';
 import { isDrawingMode } from '@plait/common';
 import { isHitFreehand } from './utils';
 import { Freehand, FreehandShape } from './type';
 import { CoreTransforms } from '@plait/core';
+import { LaserPointer } from '../../utils/laser-pointer';
+import { isTwoFingerMode } from '@plait-board/react-board';
 
 export const withFreehandErase = (board: PlaitBoard) => {
-    const { pointerDown, pointerMove, pointerUp, globalPointerUp } = board;
+  const { pointerDown, pointerMove, pointerUp, globalPointerUp, touchStart } =
+    board;
 
-    let isErasing = false;
-    const elementsToDelete = new Set<string>();
+  const laserPointer = new LaserPointer();
 
-    const checkAndMarkFreehandElementsForDeletion = (point: Point) => {
-        const viewBoxPoint = toViewBoxPoint(board, toHostPoint(board, point[0], point[1]));
+  let isErasing = false;
+  const elementsToDelete = new Set<string>();
 
-        const freehandElements = board.children.filter((element) =>
-            Freehand.isFreehand(element)
-        ) as Freehand[];
+  const checkAndMarkFreehandElementsForDeletion = (point: Point) => {
+    const viewBoxPoint = toViewBoxPoint(
+      board,
+      toHostPoint(board, point[0], point[1])
+    );
 
-        freehandElements.forEach((element) => {
-            if (!elementsToDelete.has(element.id) && isHitFreehand(board, element, viewBoxPoint)) {
-                PlaitElement.getElementG(element).style.opacity = '0.2';
-                elementsToDelete.add(element.id);
-            }
-        });
-    };
+    const freehandElements = board.children.filter((element) =>
+      Freehand.isFreehand(element)
+    ) as Freehand[];
 
-    const deleteMarkedElements = () => {
-        if (elementsToDelete.size > 0) {
-            const elementsToRemove = board.children.filter((element) =>
-                elementsToDelete.has(element.id)
-            );
-            
-            if (elementsToRemove.length > 0) {
-                CoreTransforms.removeElements(board, elementsToRemove);
-            }
-        }
-    };
+    freehandElements.forEach((element) => {
+      if (
+        !elementsToDelete.has(element.id) &&
+        isHitFreehand(board, element, viewBoxPoint)
+      ) {
+        PlaitElement.getElementG(element).style.opacity = '0.2';
+        elementsToDelete.add(element.id);
+      }
+    });
+  };
 
-    const complete = () => {
-        if (isErasing) {
-            deleteMarkedElements();
-            isErasing = false;
-            elementsToDelete.clear();
-        }
-    };
+  const deleteMarkedElements = () => {
+    if (elementsToDelete.size > 0) {
+      const elementsToRemove = board.children.filter((element) =>
+        elementsToDelete.has(element.id)
+      );
 
-    board.pointerDown = (event: PointerEvent) => {
-        const isEraserPointer = PlaitBoard.isInPointer(board, [FreehandShape.eraser]);
+      if (elementsToRemove.length > 0) {
+        CoreTransforms.removeElements(board, elementsToRemove);
+      }
+    }
+  };
 
-        if (isEraserPointer && isDrawingMode(board)) {
-            isErasing = true;
-            elementsToDelete.clear();
-            const currentPoint: Point = [event.x, event.y];
-            checkAndMarkFreehandElementsForDeletion(currentPoint);
-            return;
-        }
+  const complete = () => {
+    if (isErasing) {
+      deleteMarkedElements();
+      isErasing = false;
+      elementsToDelete.clear();
+      laserPointer.destroy();
+    }
+  };
 
-        pointerDown(event);
-    };
+  board.touchStart = (event: TouchEvent) => {
+    const isEraserPointer = PlaitBoard.isInPointer(board, [
+      FreehandShape.eraser,
+    ]);
+    if (isEraserPointer && isDrawingMode(board)) {
+      return event.preventDefault();
+    }
+    touchStart(event);
+  };
 
-    board.pointerMove = (event: PointerEvent) => {
-        if (isErasing) {
-            throttleRAF(board, 'with-freehand-erase', () => {
-                const currentPoint: Point = [event.x, event.y];
-                checkAndMarkFreehandElementsForDeletion(currentPoint);
-            });
-            return;
-        }
+  board.pointerDown = (event: PointerEvent) => {
+    const isEraserPointer = PlaitBoard.isInPointer(board, [
+      FreehandShape.eraser,
+    ]);
 
-        pointerMove(event);
-    };
+    if (isEraserPointer && isDrawingMode(board)) {
+      isErasing = true;
+      elementsToDelete.clear();
+      const currentPoint: Point = [event.x, event.y];
+      checkAndMarkFreehandElementsForDeletion(currentPoint);
+      laserPointer.init(board);
+      return;
+    }
 
-    board.pointerUp = (event: PointerEvent) => {
-        if (isErasing) {
-            complete();
-            return;
-        }
+    pointerDown(event);
+  };
 
-        pointerUp(event);
-    };
+  board.pointerMove = (event: PointerEvent) => {
+    if (isErasing && !isTwoFingerMode(board)) {
+      throttleRAF(board, 'with-freehand-erase', () => {
+        const currentPoint: Point = [event.x, event.y];
+        checkAndMarkFreehandElementsForDeletion(currentPoint);
+      });
+      return;
+    }
+    if (isErasing && isTwoFingerMode(board)) {
+      complete();
+      return;
+    }
+    pointerMove(event);
+  };
 
-    board.globalPointerUp = (event: PointerEvent) => {
-        if (isErasing) {
-            complete();
-            return;
-        }
+  board.pointerUp = (event: PointerEvent) => {
+    if (isErasing) {
+      complete();
+      return;
+    }
 
-        globalPointerUp(event);
-    };
+    pointerUp(event);
+  };
 
-    return board;
+  board.globalPointerUp = (event: PointerEvent) => {
+    if (isErasing) {
+      complete();
+      return;
+    }
+
+    globalPointerUp(event);
+  };
+
+  return board;
 };
